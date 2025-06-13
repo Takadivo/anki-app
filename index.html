@@ -20,7 +20,7 @@
     const sheetId = "1NKT8Jc9PphPB_4CDuN-nrdzuKVWM4myFVlOdNKlFgrE";
     const sheetName = "シート1";
     const apiKey = "AIzaSyCWn9wkyBU6GlQi3qwHqFViWvvWDG757jk";
-    const postUrl = "https://script.google.com/macros/s/AKfycbyjjEminHOmNFpfGXWyEz7SJkXiwWyA59s1YyNP4pMQJlBJpuZ4rkrFTSZNMtvWfwdY/exec";
+    const postUrl = "https://script.google.com/macros/s/AKfycbxytBDrsMr5ICKoDGTKfgU2OYMBQu1MlS74018592UD-eux-byQRwNi76Ek13Ooke4/exec";
 
     let cards = [];
     let index = 0;
@@ -75,14 +75,15 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ row, isCorrect })
       })
-        .then(() => {
+        .then((res) => {
+          if (!res.ok) throw new Error("APIへの送信に失敗しました");
           showingBack = false;
           index = (index + 1) % cards.length;
           renderCard();
         })
         .catch((err) => {
           console.error("送信エラー:", err);
-          alert("APIへの送信に失敗しました");
+          alert("記録に失敗しました");
         });
     }
 
