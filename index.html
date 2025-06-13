@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anki風フラッシュカード</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin: 2em; }
+    .card { border: 1px solid #ccc; padding: 2em; max-width: 600px; margin: auto; border-radius: 10px; }
+    .buttons { margin-top: 1em; display: flex; justify-content: center; gap: 1em; }
+    button { padding: 0.5em 1em; font-size: 1em; }
+    .error { color: red; margin-top: 1em; }
+  </style>
+</head>
+<body>
+  <h1>フラッシュカード</h1>
+  <div class="card" id="card">読み込み中...</div>
+  <div class="buttons" id="buttons"></div>
+  <div class="error" id="error"></div>
+
+  <script>
+    const sheetId = "1NKT8Jc9PphPB_4CDuN-nrdzuKVWM4myFVlOdNKlFgrE";
+    const sheetName = "シート1";
+    const apiKey = "AIzaSyCWn9wkyBU6GlQi3qwHqFViWvvWDG757jk";
+    const postUrl = "https://script.google.com/macros/s/AKfycbwfafe92ECW9bBglM2-oKC878f1FGJ_sfD0HtXBPN6rh-evGnxOUgqVhu1xKZGsqjjV/exec";
+
+    let cards = [];
+    let index = 0;
+    let showingBack = false;
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function renderCard() {
+      const card = cards[index];
+      const cardDiv = document.getElementById("card");
+      const buttonsDiv = document.getElementById("buttons");
+      cardDiv.textContent = showingBack ? card.back : card.front;
+      buttonsDiv.innerHTML = "";
+
+      if (!showingBack) {
+        const showBtn = document.createElement("button");
+        showBtn.textContent = "答えを見る";
+        showBtn.onclick = () => {
+          showingBack = true;
+          renderCard();
+        };
+        buttonsDiv.appendChild(showBtn);
+      } else {
+        const correctBtn = document.createElement("button");
+        correctBtn.textContent = "正解";
+        correctBtn.onclick = () => recordAnswer(true);
+
+        const wrongBtn = document.createElement("button");
+        wrongBtn.textContent = "不正解";
+        wrongBtn.onclick = () => recordAnswer(false);
+
+        buttonsDiv.appendChild(correctBtn);
+        buttonsDiv.appendChild(wrongBtn);
+      }
+    }
+
+    function recordAnswer(isCorrect) {
+      const row = cards[index].row;
+      fetch(postUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ row, isCorrect })
+      })
+        .then(response => {
+          if (!response.ok) throw new Error("APIへの送信に失敗しました");
+          return response.text();
+        })
+        .then(() => {
+          showingBack = false;
+          index = (index + 1) % cards.length;
+          renderCard();
+        })
+        .catch(error => {
+          document.getElementById("error").textContent = `エラー: ${error.message}`;
+          console.error(error);
+        });
+    }
+
+    function loadCards() {
+      fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A:E?key=${apiKey}`)
+        .then(res => {
+          if (!res.ok) throw new Error("スプレッドシートの取得に失敗しました");
+          return res.json();
+        })
+        .then(data => {
+          const values = data.values || [];
+          if (values.length === 0) throw new Error("データが見つかりません");
+
+          cards = values.map(([front, back, correct = 0, incorrect = 0], i) => {
+            correct = parseInt(correct) || 0;
+            incorrect = parseInt(incorrect) || 0;
+            const total = correct + incorrect;
+            const accuracy = total > 0 ? correct / total : 0;
+            return { row: i + 1, front, back, correct, incorrect, accuracy };
+          }).sort((a, b) => a.accuracy - b.accuracy);
+
+          index = 0;
+          showingBack = false;
+          renderCard();
+        })
+        .catch(error => {
+          document.getElementById("error").textContent = `エラー: ${error.message}`;
+          console.error(error);
+        });
+    }
+
+    loadCards();
+  </script>
+</body>
+</html>
