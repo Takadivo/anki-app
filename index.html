@@ -2,7 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>フラッシュカード</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anki風フラッシュカード</title>
   <style>
     body { font-family: sans-serif; text-align: center; margin: 2em; }
     .card { border: 1px solid #ccc; padding: 2em; max-width: 600px; margin: auto; border-radius: 10px; }
@@ -19,8 +20,7 @@
     const sheetId = "1NKT8Jc9PphPB_4CDuN-nrdzuKVWM4myFVlOdNKlFgrE";
     const sheetName = "シート1";
     const apiKey = "AIzaSyCWn9wkyBU6GlQi3qwHqFViWvvWDG757jk";
-　　const postUrl = "https://script.google.com/macros/s/AKfycbyjjEminHOmNFpfGXWyEz7SJkXiwWyA59s1YyNP4pMQJlBJpuZ4rkrFTSZNMtvWfwdY/exec";
-
+    const postUrl = "https://script.google.com/macros/s/AKfycbyjjEminHOmNFpfGXWyEz7SJkXiwWyA59s1YyNP4pMQJlBJpuZ4rkrFTSZNMtvWfwdY/exec";
 
     let cards = [];
     let index = 0;
@@ -35,6 +35,11 @@
     }
 
     function renderCard() {
+      if (cards.length === 0) {
+        document.getElementById("card").textContent = "カードが読み込めませんでした。";
+        return;
+      }
+
       const card = cards[index];
       const cardDiv = document.getElementById("card");
       const buttonsDiv = document.getElementById("buttons");
@@ -70,26 +75,39 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ row, isCorrect })
       })
-      .then(() => {
-        showingBack = false;
-        index = (index + 1) % cards.length;
-        renderCard();
-      })
-      .catch(() => alert("記録に失敗しました"));
+        .then(() => {
+          showingBack = false;
+          index = (index + 1) % cards.length;
+          renderCard();
+        })
+        .catch((err) => {
+          console.error("送信エラー:", err);
+          alert("APIへの送信に失敗しました");
+        });
     }
 
     fetch(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A:E?key=${apiKey}`)
       .then(res => res.json())
       .then(data => {
         const values = data.values || [];
+        if (values.length === 0) {
+          document.getElementById("card").textContent = "カードデータが見つかりません。";
+          return;
+        }
+
         cards = values.map(([front, back, correct = 0, incorrect = 0], i) => {
           const c = parseInt(correct) || 0;
           const w = parseInt(incorrect) || 0;
-          const accuracy = (c + w > 0) ? c / (c + w) : 0;
+          const total = c + w;
+          const accuracy = total > 0 ? c / total : 0;
           return { row: i + 1, front, back, correct: c, incorrect: w, accuracy };
         }).sort((a, b) => a.accuracy - b.accuracy);
-        shuffle(cards);
+
         renderCard();
+      })
+      .catch(err => {
+        console.error("データ取得エラー:", err);
+        document.getElementById("card").textContent = "カード取得に失敗しました。";
       });
   </script>
 </body>
